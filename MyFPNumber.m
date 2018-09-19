@@ -33,7 +33,7 @@ classdef MyFPNumber
             obj.Sign = obj.IEEESign; % sign does not change for now as we force positive base
             % Building temporary mantissa and exponent that we will
             % constrain to length afterwards
-            [obj.Mantissa,obj.Exponent] = obj.euclideanBaseChange();
+            obj.euclideanBaseChange();
         end
     end
     
@@ -49,35 +49,48 @@ classdef MyFPNumber
         function b = binaryBytePadding(~,x) %Makes sure a byte is padded by 4 zeros
             b = pad(x,4,'left','0');
         end
-        function [m,e] = euclideanBaseChange(obj)
+        function euclideanBaseChange(obj)
             % We build a destination polynomial, index i holding the
             % coefficient for decrementing exponent values of the base
             % Adding more size in the lower side to prepare for the rounding bias
-            
-            workingNumber = obj.DoubleVal;
-            % Basic Euclidean Division
-            workingExp = obj.System.ExponentUpper;
-            range = abs(obj.System.ExponentUpper-obj.System.ExponentLower)
-            range = range + obj.System.RoundingBias
-            destCoefficients = zeros(1,range);
-            for c = 1:range
-                % This is very rough for now, using doubles everywhere
-                % #evil Euclidean Division Error here
-                divisor = exp(double(workingExp * log(double(obj.System.Base)))) % WARNING Probably wrong with float exp error...
-                quotient = floor(workingNumber./divisor)
-                workingNumber = mod(workingNumber,divisor) % working number becomes remainder
-                destCoefficients(c) = quotient
-                workingExp = workingExp - 1;
+            intWorkingNumber = floor(obj.DoubleVal)
+            flWorkingNumber = obj.DoubleVal-intWorkingNumber % this is where we risk losing info
+            maxRange = abs(obj.System.ExponentLower-obj.System.ExponentUpper);
+            % Destination Series
+            intDestCoefficients = [];
+            flDestCoefficients = [];
+            % ED Integer Part
+            while true
+               quotient = floor(intWorkingNumber./obj.System.Base);
+               remainder = mod(intWorkingNumber,obj.System.Base);
+               intWorkingNumber = quotient;
+               intDestCoefficients = horzcat(remainder,intDestCoefficients);
+               if quotient==0, break; end
             end
-            % Now need to find the first non-zero coefficient
-            % Its index will correspond to the biggest exponent value
-            firstNonZero = find(destCoefficients,1);
-            largestNonZeroCoeff = obj.System.ExponentUpper - firstNonZero;
-            % We can create a temporary mantissa (in our system it is
-            % 0.d1d2d3...dn )
-            m = destCoefficients(firstNonZero:length(destCoefficients));
-            % And a temporary exponent
-            e = largestNonZeroCoeff + 1; % to compensate for the division by base implied by mantissa starting with zero
+            % ED Float Part (TODO: bring int/float into 1 function?)
+            % This part does not always terminate, so we limit
+            i = 1;
+            while true
+                multiplied = flWorkingNumber * obj.System.Base;
+                intPart = floor(multiplied);
+                flPart = multiplied - intPart;
+                flWorkingNumber = flPart;
+                flDestCoefficients = horzcat(flDestCoefficients,intPart);
+                i = i +1;
+                if i==50, break; end
+                if flPart==0, break; end
+            end
+            disp(strcat('INTEGER PART IN NEW BASE: ',mat2str(intDestCoefficients)));
+            disp(strcat('FLOAT PART IN NEW BASE: ',mat2str(flDestCoefficients)));
+%             % Now need to find the first non-zero coefficient
+%             % Its index will correspond to the biggest exponent value
+%             firstNonZero = find(destCoefficients,1);
+%             largestNonZeroCoeff = obj.System.ExponentUpper - firstNonZero;
+%             % We can create a temporary mantissa (in our system it is
+%             % 0.d1d2d3...dn )
+%             m = destCoefficients(firstNonZero:length(destCoefficients));
+%             % And a temporary exponent
+%             e = largestNonZeroCoeff + 1; % to compensate for the division by base implied by mantissa starting with zero
         end
     end
 end
