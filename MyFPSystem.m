@@ -9,12 +9,12 @@ classdef MyFPSystem
     %       {2, 24, -126, 127}
     
     properties
-        NbDigits uint16
-        Base int16
-        ExponentLower int16
-        ExponentUpper int16
+        NbDigits 
+        Base 
+        ExponentLower 
+        ExponentUpper 
         % ASK: Redundant to define lower and upper?
-        RoundingBias int16
+        RoundingBias
     end
     
     methods

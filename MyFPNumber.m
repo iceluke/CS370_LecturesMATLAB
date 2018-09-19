@@ -53,22 +53,29 @@ classdef MyFPNumber
             % We build a destination polynomial, index i holding the
             % coefficient for decrementing exponent values of the base
             % Adding more size in the lower side to prepare for the rounding bias
-            destCoefficients = [];
-            i = uint64(0);
+            
             workingNumber = obj.DoubleVal;
             % Basic Euclidean Division
-            for c=obj.System.ExponentUpper:-1:obj.System.ExponentLower-obj.System.RoundingBias
-                i = i + 1;
-                quotient = floor(workingNumber./(obj.System.Base^c));
-                workingNumber = mod(workingNumber,obj.System.Base^c); % working number becomes remainder
-                cat(2,workingNumber,quotient);
+            workingExp = obj.System.ExponentUpper;
+            range = abs(obj.System.ExponentUpper-obj.System.ExponentLower)
+            range = range + obj.System.RoundingBias
+            destCoefficients = zeros(1,range);
+            for c = 1:range
+                % This is very rough for now, using doubles everywhere
+                % #evil Euclidean Division Error here
+                divisor = exp(double(workingExp * log(double(obj.System.Base)))) % WARNING Probably wrong with float exp error...
+                quotient = floor(workingNumber./divisor)
+                workingNumber = mod(workingNumber,divisor) % working number becomes remainder
+                destCoefficients(c) = quotient
+                workingExp = workingExp - 1;
             end
             % Now need to find the first non-zero coefficient
             % Its index will correspond to the biggest exponent value
-            largestNonZeroCoeff = obj.System.ExponentUpper - abs(obj.System.ExponentUpper - find(destCoefficients,1));
+            firstNonZero = find(destCoefficients,1);
+            largestNonZeroCoeff = obj.System.ExponentUpper - firstNonZero;
             % We can create a temporary mantissa (in our system it is
             % 0.d1d2d3...dn )
-            m = destCoefficients(largestNonZeroCoeff:length(destCoefficients));
+            m = destCoefficients(firstNonZero:length(destCoefficients));
             % And a temporary exponent
             e = largestNonZeroCoeff + 1; % to compensate for the division by base implied by mantissa starting with zero
         end
