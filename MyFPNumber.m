@@ -7,10 +7,11 @@ classdef MyFPNumber
         IEEESign
         IEEEExponent
         IEEEMantissa
+        IEEEBinMantissa
+        System MyFPSystem
         Sign uint8
         Mantissa uint64
         Exponent uint64
-        System MyFPSystem
     end
     
     methods
@@ -26,6 +27,7 @@ classdef MyFPNumber
             % see https://en.wikipedia.org/wiki/Exponent_bias 
             obj.IEEEExponent = bin2dec(ieee(2:12)) - 1023;
             % in IEEE754 the mantissa corresponds to 1.b0b1b2...bt
+            obj.IEEEBinMantissa = ieee(13:64);
             obj.IEEEMantissa = bin2dec(ieee(13:64));
             % %%%%%%%%%
             % Converting to the lecture's representation in custom system
@@ -33,7 +35,7 @@ classdef MyFPNumber
             obj.Sign = obj.IEEESign; % sign does not change for now as we force positive base
             % Building temporary mantissa and exponent that we will
             % constrain to length afterwards
-            obj.euclideanBaseChange();
+            [obj.Exponent, obj.Mantissa] = obj.euclideanBaseChange();
         end
     end
     
@@ -49,12 +51,12 @@ classdef MyFPNumber
         function b = binaryBytePadding(~,x) %Makes sure a byte is padded by 4 zeros
             b = pad(x,4,'left','0');
         end
-        function euclideanBaseChange(obj)
+        function [e,m] = euclideanBaseChange(obj)
             % We build a destination polynomial, index i holding the
             % coefficient for decrementing exponent values of the base
             % Adding more size in the lower side to prepare for the rounding bias
-            intWorkingNumber = floor(obj.DoubleVal)
-            flWorkingNumber = obj.DoubleVal-intWorkingNumber % this is where we risk losing info
+            intWorkingNumber = floor(obj.DoubleVal);
+            flWorkingNumber = obj.DoubleVal-intWorkingNumber; % this is where we risk losing info
             maxRange = abs(obj.System.ExponentLower-obj.System.ExponentUpper);
             % Destination Series
             intDestCoefficients = [];
@@ -69,6 +71,7 @@ classdef MyFPNumber
             end
             % ED Float Part (TODO: bring int/float into 1 function?)
             % This part does not always terminate, so we limit
+            maxFloatRange = maxRange + obj.System.RoundingBias;
             i = 1;
             while true
                 multiplied = flWorkingNumber * obj.System.Base;
@@ -77,21 +80,14 @@ classdef MyFPNumber
                 flWorkingNumber = flPart;
                 flDestCoefficients = horzcat(flDestCoefficients,intPart);
                 i = i +1;
-                if i==50, break; end
+                if i==maxFloatRange, break; end
                 if flPart==0, break; end
             end
-            disp(strcat('INTEGER PART IN NEW BASE: ',mat2str(intDestCoefficients)));
-            disp(strcat('FLOAT PART IN NEW BASE: ',mat2str(flDestCoefficients)));
-%             % Now need to find the first non-zero coefficient
-%             % Its index will correspond to the biggest exponent value
-%             firstNonZero = find(destCoefficients,1);
-%             largestNonZeroCoeff = obj.System.ExponentUpper - firstNonZero;
-%             % We can create a temporary mantissa (in our system it is
-%             % 0.d1d2d3...dn )
-%             m = destCoefficients(firstNonZero:length(destCoefficients));
-%             % And a temporary exponent
-%             e = largestNonZeroCoeff + 1; % to compensate for the division by base implied by mantissa starting with zero
+            % We can guess the exponent
+            % the leading coeff has exponent e-1 but we'll divide by base in order to obtain a 0.d1d2d3 term
+            e = length(intDestCoefficients);
+            m = horzcat(intDestCoefficients,flDestCoefficients); % truncating for now
+            m = m(1:maxRange);
         end
     end
 end
-

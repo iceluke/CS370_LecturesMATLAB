@@ -21,7 +21,6 @@ classdef MyFPSystem
         function obj = MyFPSystem(nbDigits,base,lower,upper,bias)
             obj.NbDigits = nbDigits;
             if ~(base>0) % TODO: implement support for negative bases
-                         % would just have to take care of sign bit
                 disp('Base must be positive')
                 return
             end
@@ -34,9 +33,8 @@ classdef MyFPSystem
             % Exponent bounds are by default casted to integer
             % TODO: bind them to abs(bound) < abs(IEEE)-5
             % So that we have room for rounding with 5 digits freedom
-            obj.ExponentLower = uint16(lower);
-            obj.ExponentUpper = uint16(upper);
+            obj.ExponentLower = lower;
+            obj.ExponentUpper = upper;
         end
     end
 end
-
