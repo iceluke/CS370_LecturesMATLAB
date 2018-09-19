@@ -13,10 +13,12 @@ classdef MyFPSystem
         Base int16
         ExponentLower int16
         ExponentUpper int16
+        % ASK: Redundant to define lower and upper?
+        RoundingBias int16
     end
     
     methods
-        function obj = MyFPSystem(nbDigits,base,lower,upper)
+        function obj = MyFPSystem(nbDigits,base,lower,upper,bias)
             obj.NbDigits = nbDigits;
             if ~(base>0) % TODO: implement support for negative bases
                          % would just have to take care of sign bit
@@ -24,6 +26,11 @@ classdef MyFPSystem
                 return
             end
             obj.Base = base;
+            if ~(bias>0)
+                disp('Bias must be positive')
+                return
+            end
+            obj.RoundingBias = bias;
             % Exponent bounds are by default casted to integer
             % TODO: bind them to abs(bound) < abs(IEEE)-5
             % So that we have room for rounding with 5 digits freedom

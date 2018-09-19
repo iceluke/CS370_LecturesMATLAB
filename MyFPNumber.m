@@ -3,6 +3,10 @@ classdef MyFPNumber
     %   
     
     properties
+        DoubleVal
+        IEEESign
+        IEEEExponent
+        IEEEMantissa
         Sign uint8
         Mantissa uint64
         Exponent uint64
@@ -11,41 +15,62 @@ classdef MyFPNumber
     
     methods
         function obj = MyFPNumber(real,system)
+            obj.DoubleVal = real;
             obj.System = system;
             % %%%%%%%%%
             % From IEEE 754 double to its binary representation
             ieee = obj.myNum2bin(real);
-            ieeeSign = bin2dec(ieee(1));
+            obj.IEEESign = bin2dec(ieee(1));
             % IEEE 754 has exponent bias to avoid sign bit 
             % = 2^(exponentbits-1)-1 (for double = 1023)
             % see https://en.wikipedia.org/wiki/Exponent_bias 
-            ieeeExponent = bin2dec(ieee(2:12)) - 1023;
+            obj.IEEEExponent = bin2dec(ieee(2:12)) - 1023;
             % in IEEE754 the mantissa corresponds to 1.b0b1b2...bt
-            ieeeMantissa = bin2dec(ieee(13:64));
+            obj.IEEEMantissa = bin2dec(ieee(13:64));
             % %%%%%%%%%
-            % Converting to the lecture's representation
+            % Converting to the lecture's representation in custom system
             % Using uint64 for Exponent allows for incrementing it
-            obj.Sign = ieeeSign; % sign does not change for now as we force positive base
-            [obj.Mantissa,obj.Exponent] = obj.euclideanBaseChange(ieeeMantissa,ieeeExponent,obj.System.Base);
+            obj.Sign = obj.IEEESign; % sign does not change for now as we force positive base
+            % Building temporary mantissa and exponent that we will
+            % constrain to length afterwards
+            [obj.Mantissa,obj.Exponent] = obj.euclideanBaseChange();
         end
     end
     
     methods (Access = private)
-        function ieeeBinary = myNum2bin(obj,i) % MATLAB's num2bin is a paid extension
+        function binaryForm = myNum2bin(obj,i) % MATLAB's num2bin is a paid extension
             % We are using multiple inbuilt conversions because...lazyness
             hexForm = num2cell(num2hex(i)); % cell array representation
             hexArray = cellfun(@hex2dec, hexForm, 'UniformOutput',false); % back to dec array
             binArray = cellfun(@dec2bin, hexArray, 'UniformOutput',false);  % into binary representation
-            % IEEE 754 double precision is 64 bits long, padding if
-            % necessary
-            binArray = cellfun(@obj.binaryBytePadding, binArray, 'UniformOutput',false);
-            ieeeBinary = strcat(cell2mat(binArray));
+            binArray = cellfun(@obj.binaryBytePadding, binArray, 'UniformOutput',false); % byte padding
+            binaryForm = strcat(cell2mat(binArray));
         end
-        function b = binaryBytePadding(obj,x) %Makes sure a byte is padded by 4 zeros
+        function b = binaryBytePadding(~,x) %Makes sure a byte is padded by 4 zeros
             b = pad(x,4,'left','0');
         end
-        function euclideanBaseChange(obj,mantissa,exponent,destBase)
-            % TODO
+        function [m,e] = euclideanBaseChange(obj)
+            % We build a destination polynomial, index i holding the
+            % coefficient for decrementing exponent values of the base
+            % Adding more size in the lower side to prepare for the rounding bias
+            destCoefficients = [];
+            i = uint64(0);
+            workingNumber = obj.DoubleVal;
+            % Basic Euclidean Division
+            for c=obj.System.ExponentUpper:-1:obj.System.ExponentLower-obj.System.RoundingBias
+                i = i + 1;
+                quotient = floor(workingNumber./(obj.System.Base^c));
+                workingNumber = mod(workingNumber,obj.System.Base^c); % working number becomes remainder
+                cat(2,workingNumber,quotient);
+            end
+            % Now need to find the first non-zero coefficient
+            % Its index will correspond to the biggest exponent value
+            largestNonZeroCoeff = obj.System.ExponentUpper - abs(obj.System.ExponentUpper - find(destCoefficients,1));
+            % We can create a temporary mantissa (in our system it is
+            % 0.d1d2d3...dn )
+            m = destCoefficients(largestNonZeroCoeff:length(destCoefficients));
+            % And a temporary exponent
+            e = largestNonZeroCoeff + 1; % to compensate for the division by base implied by mantissa starting with zero
         end
     end
 end
