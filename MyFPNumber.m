@@ -37,6 +37,24 @@ classdef MyFPNumber
             % constrain to length afterwards
             [obj.Exponent, obj.Mantissa] = obj.euclideanBaseChange();
         end
+        function r = plus(obj1,obj2)
+            % Forces base of first operand
+            % Uses the original double value in order to converse maximum
+            % precision
+            r = MyFPNumber(obj1.DoubleVal+obj2.DoubleVal,obj1.System)
+        end
+        function r = minus(obj1,obj2)
+            % cf. plus
+            r = MyFPNumber(obj1.DoubleVal-obj2.DoubleVal,obj1.System)
+        end
+        function r = times(obj1,obj2)
+            % cf. plus
+            r = MyFPNumber(obj1.DoubleVal*obj2.DoubleVal,obj1.System)
+        end
+        function r = rdivide(obj1,obj2)
+            % cf. plus
+            r = MyFPNumber(obj1.DoubleVal./obj2.DoubleVal,obj1.System)
+        end
     end
     
     methods (Access = private)
@@ -87,7 +105,7 @@ classdef MyFPNumber
             % the leading coeff has exponent e-1 but we'll divide by base in order to obtain a 0.d1d2d3 term
             e = length(intDestCoefficients);
             m = horzcat(intDestCoefficients,flDestCoefficients); % truncating for now
-            m = m(1:maxRange);
+            m = m(1:min(maxRange,length(m)));
         end
     end
 end
